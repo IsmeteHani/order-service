@@ -2,7 +2,7 @@ trigger:
 - main
 
 pool:
-  vmImage: ubuntu-latest
+  vmImage: 'ubuntu-latest'
 
 steps:
 - task: JavaToolInstaller@0
@@ -22,15 +22,17 @@ steps:
     contents: '**/target/*.jar'
     targetFolder: '$(Build.ArtifactStagingDirectory)'
 
-- task: PublishBuildArtifacts@1
+- task: ArchiveFiles@2
   inputs:
-    PathtoPublish: '$(Build.ArtifactStagingDirectory)'
-    ArtifactName: 'drop'
-    publishLocation: 'Container'
+    rootFolderOrFile: '$(Build.ArtifactStagingDirectory)'
+    includeRootFolder: false
+    archiveType: 'zip'
+    archiveFile: '$(Build.ArtifactStagingDirectory)/app.zip'
 
+# Deploy ZIP te Web App (Code)
 - task: AzureWebApp@1
-  displayName: 'Deploy to Azure Web App'
+  displayName: 'Deploy ZIP'
   inputs:
-    azureSubscription: 'rg-igw-demo'
-    appName: 'order-svc-app'
-    package: '$(Build.ArtifactStagingDirectory)/**/*.jar'
+    azureSubscription: 'rg-igw-demo'             # emri i Service Connection-it ARM
+    appName: 'order-svc-app'                     # emri i Web App
+    package: '$(Build.ArtifactStagingDirectory)/app.zip'
