@@ -31,6 +31,6 @@ steps:
 - task: AzureWebApp@1
   displayName: 'Deploy to Azure Web App'
   inputs:
-    azureSubscription: 'sc-ismete-azure'
-    appName: 'order-service-ismete-dev'
+    azureSubscription: 'rg-igw-demo'
+    appName: 'order-svc-app'
     package: '$(Build.ArtifactStagingDirectory)/**/*.jar'
