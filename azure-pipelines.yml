@@ -1,38 +1,70 @@
 trigger:
-- main
+  - main
 
 pool:
   vmImage: 'ubuntu-latest'
 
-steps:
-- task: JavaToolInstaller@0
-  inputs:
-    versionSpec: '21'
-    jdkArchitectureOption: 'x64'
-    jdkSourceOption: 'PreInstalled'
+variables:
+  MAVEN_CACHE_FOLDER: $(Pipeline.Workspace)/.m2/repository
+  MAVEN_OPTS: '-Dmaven.repo.local=$(MAVEN_CACHE_FOLDER)'
 
-- task: Maven@4
-  inputs:
-    mavenPomFile: 'pom.xml'
-    goals: 'clean package -DskipTests'
-    publishJUnitResults: false
+stages:
+  - stage: Build
+    displayName: 'Build and Test'
+    jobs:
+      - job: BuildJob
+        displayName: 'Maven Build'
+        steps:
+          # Clean Maven cache to avoid corrupted dependencies
+          - script: |
+              rm -rf $(MAVEN_CACHE_FOLDER)
+              mvn dependency:purge-local-repository -Dmaven.repo.local=$(MAVEN_CACHE_FOLDER)
+            displayName: 'Clean Maven cache'
+            continueOnError: true
 
-- task: CopyFiles@2
-  inputs:
-    contents: '**/target/*.jar'
-    targetFolder: '$(Build.ArtifactStagingDirectory)'
+          - task: Maven@3
+            displayName: 'Maven Package'
+            inputs:
+              mavenPomFile: 'pom.xml'
+              goals: 'clean package'
+              options: '-DskipTests=false'
+              publishJUnitResults: true
+              testResultsFiles: '**/surefire-reports/TEST-*.xml'
+              javaHomeOption: 'JDKVersion'
+              jdkVersionOption: '1.21'
+              mavenVersionOption: 'Default'
+              mavenOptions: '-Xmx3072m'
 
-- task: ArchiveFiles@2
-  inputs:
-    rootFolderOrFile: '$(Build.ArtifactStagingDirectory)'
-    includeRootFolder: false
-    archiveType: 'zip'
-    archiveFile: '$(Build.ArtifactStagingDirectory)/app.zip'
+          - task: CopyFiles@2
+            displayName: 'Copy JAR to Staging'
+            inputs:
+              SourceFolder: '$(System.DefaultWorkingDirectory)/target'
+              Contents: '*.jar'
+              TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
-# Deploy ZIP te Web App (Code)
-- task: AzureWebApp@1
-  displayName: 'Deploy ZIP'
-  inputs:
-    azureSubscription: 'rg-igw-demo'             # emri i Service Connection-it ARM
-    appName: 'order-svc-app'                     # emri i Web App
-    package: '$(Build.ArtifactStagingDirectory)/app.zip'
+          - task: PublishBuildArtifacts@1
+            displayName: 'Publish Artifact'
+            inputs:
+              PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+              ArtifactName: 'drop'
+
+  - stage: Deploy
+    displayName: 'Deploy to Azure'
+    dependsOn: Build
+    condition: succeeded()
+    jobs:
+      - deployment: DeployJob
+        displayName: 'Deploy to App Service'
+        environment: 'production'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: AzureWebApp@1
+                  displayName: 'Deploy to Azure App Service'
+                  inputs:
+                    azureSubscription: 'Azure subscription 1'
+                    appType: 'webAppLinux'
+                    appName: 'order-service-ismete'
+                    package: '$(Pipeline.Workspace)/drop/*.jar'
+                    runtimeStack: 'JAVA|21-java21'

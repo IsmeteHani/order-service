@@ -29,8 +29,12 @@ public class OpenApiConfig {
                                         .description("JWT Bearer authentication")))
                 .addSecurityItem(new SecurityRequirement().addList("bearerAuth"))
                 .servers(List.of(
-                        new Server().url("http://localhost:8082").description("Local"),
-                        new Server().url("https://orderservice.drillbi.se").description("Production")
+                        new Server()
+                                .url("https://order-service-ismete.azurewebsites.net")
+                                .description("Production server (Azure)"),
+                        new Server()
+                                .url("http://localhost:8082")
+                                .description("Local development server")
                 ));
     }
 }
