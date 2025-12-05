@@ -5,13 +5,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.HttpStatus;
-import org.springframework.web.server.ResponseStatusException;
 import se.moln.orderservice.model.Order;
 import se.moln.orderservice.model.OrderItem;
 import se.moln.orderservice.model.OrderStatus;
 import se.moln.orderservice.repository.OrderRepository;
-import se.moln.orderservice.service.JwtService;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -29,9 +26,6 @@ class AnalyticsControllerTest {
 
     @Mock
     OrderRepository orders;
-
-    @Mock
-    JwtService jwtService;
 
     @InjectMocks
     AnalyticsController controller;
@@ -60,25 +54,7 @@ class AnalyticsControllerTest {
     }
 
     @Test
-    void monthlyKpis_throws401_whenMissingBearer() {
-        ResponseStatusException ex = assertThrows(ResponseStatusException.class, () ->
-                controller.monthlyKpis(null, null, null)
-        );
-        assertEquals(HttpStatus.UNAUTHORIZED, ex.getStatusCode());
-    }
-
-    @Test
-    void monthlyKpis_throws401_whenInvalidToken() {
-        when(jwtService.isTokenValid("invalid")).thenReturn(false);
-        ResponseStatusException ex = assertThrows(ResponseStatusException.class, () ->
-                controller.monthlyKpis(null, null, "Bearer invalid")
-        );
-        assertEquals(HttpStatus.UNAUTHORIZED, ex.getStatusCode());
-    }
-
-    @Test
     void monthlyKpis_returnsAggregatedStats_forCurrentMonth() {
-        when(jwtService.isTokenValid("valid")).thenReturn(true);
         YearMonth ym = YearMonth.now();
         var offset = OffsetDateTime.now().getOffset();
         OffsetDateTime d1 = ym.atDay(5).atStartOfDay().atOffset(offset);
@@ -98,7 +74,7 @@ class AnalyticsControllerTest {
         when(orders.findByStatusAndOrderDateBetween(eq(OrderStatus.CREATED), any(), any()))
                 .thenReturn(List.of(o1, o2));
 
-        AnalyticsController.MonthlyKpisResponse resp = controller.monthlyKpis(null, null, "Bearer valid");
+        AnalyticsController.MonthlyKpisResponse resp = controller.monthlyKpis(null, null);
 
         assertEquals(ym.toString(), resp.yearMonth());
         assertEquals(6, resp.unitsSold()); // 2 + 3 + 1
@@ -111,7 +87,6 @@ class AnalyticsControllerTest {
 
     @Test
     void monthlyKpis_withSpecifiedYearMonth_andNullPricesHandled() {
-        when(jwtService.isTokenValid("valid")).thenReturn(true);
         int year = 2024;
         int month = 12;
         var offset = OffsetDateTime.now().getOffset();
@@ -127,7 +102,7 @@ class AnalyticsControllerTest {
         when(orders.findByStatusAndOrderDateBetween(eq(OrderStatus.CREATED), any(), any()))
                 .thenReturn(List.of(o));
 
-        AnalyticsController.MonthlyKpisResponse resp = controller.monthlyKpis(year, month, "Bearer valid");
+        AnalyticsController.MonthlyKpisResponse resp = controller.monthlyKpis(year, month);
 
         assertEquals("2024-12", resp.yearMonth());
         assertEquals(5, resp.unitsSold());
@@ -135,5 +110,19 @@ class AnalyticsControllerTest {
         assertNotNull(resp.topProduct());
         assertEquals(p, resp.topProduct().productId());
         assertEquals("0.00", resp.topProduct().revenue());
+    }
+
+    @Test
+    void monthlyKpis_returnsEmptyStats_whenNoOrders() {
+        when(orders.findByStatusAndOrderDateBetween(eq(OrderStatus.CREATED), any(), any()))
+                .thenReturn(List.of());
+
+        AnalyticsController.MonthlyKpisResponse resp = controller.monthlyKpis(null, null);
+
+        assertNotNull(resp);
+        assertEquals(YearMonth.now().toString(), resp.yearMonth());
+        assertEquals(0, resp.unitsSold());
+        assertEquals("0.00", resp.revenue());
+        assertNull(resp.topProduct());
     }
 }

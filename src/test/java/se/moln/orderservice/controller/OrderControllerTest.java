@@ -1,4 +1,4 @@
- package se.moln.orderservice.controller;
+package se.moln.orderservice.controller;
 
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -20,7 +20,7 @@ import static org.mockito.Mockito.*;
 class OrderControllerTest {
 
     @Test
-    void purchase_passesTokenAndBodyToService_andReturnsOkResponse() {
+    void purchase_passesBodyToService_andReturnsOkResponse() {
         OrderService svc = mock(OrderService.class);
         OrderController ctrl = new OrderController(svc);
 
@@ -28,64 +28,56 @@ class OrderControllerTest {
         PurchaseRequest req = new PurchaseRequest(List.of(new PurchaseRequest.OrderItemRequest(pid, 3)));
         PurchaseResponse expected = new PurchaseResponse(UUID.randomUUID(), "ORD-ABC12345", new BigDecimal("123.45"));
 
-        when(svc.purchaseProduct(any(PurchaseRequest.class), any())).thenReturn(Mono.just(expected));
+        when(svc.purchaseProduct(any(PurchaseRequest.class), isNull())).thenReturn(Mono.just(expected));
 
-        var respEntity = ctrl.purchase("Bearer my.jwt.token", req).block();
+        var respEntity = ctrl.purchase(req).block();
         assertNotNull(respEntity);
         assertEquals(200, respEntity.getStatusCode().value());
         assertEquals(expected, respEntity.getBody());
 
         ArgumentCaptor<PurchaseRequest> reqCap = ArgumentCaptor.forClass(PurchaseRequest.class);
-        ArgumentCaptor<String> tokCap = ArgumentCaptor.forClass(String.class);
-        verify(svc).purchaseProduct(reqCap.capture(), tokCap.capture());
+        verify(svc).purchaseProduct(reqCap.capture(), isNull());
         PurchaseRequest captured = reqCap.getValue();
         assertNotNull(captured);
         assertEquals(1, captured.items().size());
         assertEquals(pid, captured.items().get(0).productId());
         assertEquals(3, captured.items().get(0).quantity());
-        assertEquals("my.jwt.token", tokCap.getValue());
     }
 
     @Test
-    void history_passesTokenAndPaging_andReturnsOkResponse() {
+    void history_passesPaging_andReturnsOkResponse() {
         OrderService svc = mock(OrderService.class);
         OrderController ctrl = new OrderController(svc);
         List<OrderHistoryDto> data = List.of(new OrderHistoryDto(
                 UUID.randomUUID(), "ORD-1", new BigDecimal("10.00"), OrderStatus.CREATED,
                 OffsetDateTime.now(), List.of()
         ));
-        when(svc.getOrderHistory("tkn", 1, 5)).thenReturn(Mono.just(data));
+        when(svc.getOrderHistory(null, 1, 5)).thenReturn(Mono.just(data));
 
-        var respEntity = ctrl.history("Bearer tkn", 1, 5).block();
+        var respEntity = ctrl.history(1, 5).block();
         assertNotNull(respEntity);
         assertEquals(200, respEntity.getStatusCode().value());
         assertEquals(data, respEntity.getBody());
     }
 
     @Test
-    void history_missingBearerYieldsServiceError() {
-        OrderService svc = mock(OrderService.class);
-        OrderController ctrl = new OrderController(svc);
-        when(svc.getOrderHistory(null, 0, 10)).thenReturn(Mono.error(new IllegalArgumentException("Missing bearer token")));
-
-        assertThrows(IllegalArgumentException.class, () -> ctrl.history(null, 0, 10).block());
-    }
-
-    @Test
-    void purchase_withoutBearerPrefix_passesNullToken_andBubblesServiceError() {
+    void purchase_callsService_withNullToken() {
         OrderService svc = mock(OrderService.class);
         OrderController ctrl = new OrderController(svc);
         UUID pid = UUID.randomUUID();
         PurchaseRequest req = new PurchaseRequest(List.of(new PurchaseRequest.OrderItemRequest(pid, 1)));
-        // When token is null, service is expected to error
-        when(svc.purchaseProduct(any(PurchaseRequest.class), isNull()))
-                .thenReturn(Mono.error(new IllegalArgumentException("Missing bearer token")));
 
-        assertThrows(IllegalArgumentException.class, () -> ctrl.purchase("notbearer token", req).block());
-        ArgumentCaptor<PurchaseRequest> reqCap2 = ArgumentCaptor.forClass(PurchaseRequest.class);
-        verify(svc).purchaseProduct(reqCap2.capture(), isNull());
-        assertEquals(1, reqCap2.getValue().items().size());
-        assertEquals(pid, reqCap2.getValue().items().get(0).productId());
-        assertEquals(1, reqCap2.getValue().items().get(0).quantity());
+        when(svc.purchaseProduct(any(PurchaseRequest.class), isNull()))
+                .thenReturn(Mono.just(new PurchaseResponse(UUID.randomUUID(), "ORD-123", new BigDecimal("99.99"))));
+
+        var respEntity = ctrl.purchase(req).block();
+        assertNotNull(respEntity);
+        assertEquals(200, respEntity.getStatusCode().value());
+
+        ArgumentCaptor<PurchaseRequest> reqCap = ArgumentCaptor.forClass(PurchaseRequest.class);
+        verify(svc).purchaseProduct(reqCap.capture(), isNull());
+        assertEquals(1, reqCap.getValue().items().size());
+        assertEquals(pid, reqCap.getValue().items().get(0).productId());
+        assertEquals(1, reqCap.getValue().items().get(0).quantity());
     }
 }
