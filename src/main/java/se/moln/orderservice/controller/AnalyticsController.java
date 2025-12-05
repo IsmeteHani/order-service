@@ -8,17 +8,13 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
 import se.moln.orderservice.model.Order;
 import se.moln.orderservice.model.OrderItem;
 import se.moln.orderservice.model.OrderStatus;
 import se.moln.orderservice.repository.OrderRepository;
-import se.moln.orderservice.service.JwtService;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -34,7 +30,6 @@ import java.util.UUID;
 public class AnalyticsController {
 
     private final OrderRepository orders;
-    private final JwtService jwtService;
 
     @GetMapping("/analytics/monthly-kpis")
     @Operation(
@@ -57,23 +52,14 @@ public class AnalyticsController {
                                               }
                                             }
                                             """)
-                    )),
-                    @ApiResponse(responseCode = "401", description = "Unauthorized")
+                    ))
             }
     )
     public MonthlyKpisResponse monthlyKpis(
             @RequestParam(required = false) Integer year,
-            @RequestParam(required = false) @Min(1) @Max(12) Integer month,
-            @RequestHeader(name = "Authorization", required = false) String authorization
+            @RequestParam(required = false) @Min(1) @Max(12) Integer month
     ) {
-        // Kräver giltig bearer-token
-        if (authorization == null || !authorization.startsWith("Bearer ")) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Missing Bearer token");
-        }
-        String token = authorization.substring(7);
-        if (!jwtService.isTokenValid(token)) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid or expired token");
-        }
+        // No authentication required
 
         YearMonth ym = (year == null || month == null)
                 ? YearMonth.now()
