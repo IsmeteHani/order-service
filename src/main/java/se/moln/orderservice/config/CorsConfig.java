@@ -22,7 +22,7 @@ public class CorsConfig {
                 "https://userservice.drillbi.se",
                 "https://kebabrolle.drillbi.se",
                 "https://orderservice.drillbi.se",
-                "https://order-service-ismete-hxh3eqc6asa2fflhu.northeurope-01.azurewebsites.net"
+                "https://order-service-ismete-hxh3eqc6asa2ffhu.northeurope-01.azurewebsites.net"
         ));
 
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
@@ -31,7 +31,12 @@ public class CorsConfig {
         config.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+
+        // Register CORS configuration for all paths
         source.registerCorsConfiguration("/**", config);
+        source.registerCorsConfiguration("/actuator/**", config);
+        source.registerCorsConfiguration("/swagger-ui/**", config);
+        source.registerCorsConfiguration("/v3/api-docs/**", config);
 
         return new CorsWebFilter(source);
     }
