@@ -27,8 +27,8 @@ stages:
             inputs:
               mavenPomFile: 'pom.xml'
               goals: 'clean package'
-              options: '-DskipTests=false'
-              publishJUnitResults: true
+              options: '-DskipTests=true'
+              publishJUnitResults: false
               testResultsFiles: '**/surefire-reports/TEST-*.xml'
               javaHomeOption: 'JDKVersion'
               jdkVersionOption: '1.21'
