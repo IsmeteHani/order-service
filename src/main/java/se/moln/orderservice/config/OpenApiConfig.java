@@ -30,7 +30,7 @@ public class OpenApiConfig {
                 .addSecurityItem(new SecurityRequirement().addList("bearerAuth"))
                 .servers(List.of(
                         new Server()
-                                .url("https://order-service-ismete.azurewebsites.net")
+                                .url("https://order-service-ismete-hxh3eqc6asa2ffhu.northeurope-01.azurewebsites.net")
                                 .description("Production server (Azure)"),
                         new Server()
                                 .url("http://localhost:8082")
